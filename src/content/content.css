@@ -1,0 +1,68 @@
+/* Product grid item animations */
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.vinted-lens-analyzing {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.vinted-lens-hidden {
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
+  pointer-events: none;
+}
+
+.vinted-lens-match {
+  opacity: 1;
+  transition: opacity 0.5s ease-in;
+}
+
+/* Toast notification */
+.vinted-lens-toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(9, 132, 127, 0.9);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+.vinted-lens-toast.show {
+  opacity: 1;
+}
+
+/* Grid item overlay */
+.vinted-lens-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(9, 132, 127, 0.1);
+  border: 2px solid #09847F;
+  border-radius: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.vinted-lens-match .vinted-lens-overlay {
+  opacity: 1;
+}

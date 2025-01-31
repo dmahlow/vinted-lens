@@ -1,0 +1,52 @@
+{
+  "manifest_version": 2,
+  "name": "Vinted Lens",
+  "version": "1.0.0",
+  "description": "AI-powered visual filtering for Vinted.com using Claude vision capabilities",
+  "permissions": [
+    "*://*.vinted.com/*",
+    "*://*.vinted.fr/*",
+    "*://*.vinted.de/*",
+    "storage",
+    "activeTab",
+    "tabs",
+    "<all_urls>",
+    "downloads"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.vinted.com/*",
+        "*://*.vinted.fr/*",
+        "*://*.vinted.de/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "Vinted Lens",
+    "default_icon": {
+      "48": "icons/icon-48.png",
+      "96": "icons/icon-96.png"
+    }
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "web_accessible_resources": [
+    "content.css",
+    "icons/*"
+  ],
+  "content_security_policy": "script-src 'self'; object-src 'self';"
+}

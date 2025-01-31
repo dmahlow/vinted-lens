@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vinted Lens Settings</title>
+  <style>
+    body {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 32px;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    .section {
+      margin-bottom: 32px;
+    }
+    h1 {
+      color: #09847F;
+      margin-bottom: 24px;
+    }
+    h2 {
+      color: #333;
+      margin-bottom: 16px;
+    }
+    .field {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .description {
+      margin-top: 4px;
+      color: #666;
+      font-size: 14px;
+    }
+    button {
+      padding: 8px 16px;
+      background: #09847F;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #076D69;
+    }
+    .status {
+      margin-top: 16px;
+      padding: 8px;
+      border-radius: 4px;
+      display: none;
+    }
+    .status.success {
+      background: #e6f4ea;
+      color: #1e4620;
+      display: block;
+    }
+    .status.error {
+      background: #fce8e6;
+      color: #c5221f;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>Vinted Lens Settings</h1>
+
+  <div class="section">
+    <h2>API Configuration</h2>
+    <div class="field">
+      <label for="apiKey">Anthropic API Key</label>
+      <input type="password" id="apiKey" placeholder="Enter your Anthropic API key">
+      <div class="description">
+        Your API key is stored locally and used to access Claude's vision capabilities.
+        Get your API key from <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Default Preferences</h2>
+    <div class="field">
+      <label for="defaultPreferences">Default Item Preferences</label>
+      <input type="text" id="defaultPreferences" placeholder="e.g., wool, silk, v-neck">
+      <div class="description">
+        These preferences will be applied to all browsing sessions. You can override them temporarily in the popup.
+      </div>
+    </div>
+  </div>
+
+  <button id="save">Save Settings</button>
+  <div id="status" class="status"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>

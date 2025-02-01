@@ -117,9 +117,27 @@ class VintedLensBackground {
     });
   }
 
-  private async updateCostTracking(tokens: number): Promise<void> {
+  private getImageTokens(detail: 'low' | 'high' | 'auto'): number {
+    switch (detail) {
+      case 'low':
+        return 85;
+      case 'high':
+        return 765; // Conservative estimate, could be up to 1105
+      case 'auto':
+        return 765; // Use high estimate for auto mode
+    }
+  }
+
+  private async updateCostTracking(apiResponse: OpenAIResponse): Promise<void> {
+    // Get image tokens
+    const imageTokens = this.getImageTokens(this.imageDetail);
+
+    // Get prompt and completion tokens from API response
+    const inputTokens = apiResponse.usage.prompt_tokens + imageTokens;
+    const outputTokens = apiResponse.usage.completion_tokens;
+
     // Update tracking
-    this.costTracking.monthlyTokens += tokens;
+    this.costTracking.monthlyTokens += (inputTokens + outputTokens);
     this.costTracking.monthlyImages += 1;
 
     // Calculate cost (GPT-4o-mini pricing)
@@ -127,10 +145,19 @@ class VintedLensBackground {
     // Output: $0.60 per 1M tokens = $0.0006 per 1K tokens
     const costPerInputToken = 0.00015; // $0.15 per 1M tokens
     const costPerOutputToken = 0.0006; // $0.60 per 1M tokens
+
     this.costTracking.estimatedCost = (
-      (this.costTracking.monthlyTokens * 0.8 * costPerInputToken) + // Assuming 80% input tokens
-      (this.costTracking.monthlyTokens * 0.2 * costPerOutputToken)  // Assuming 20% output tokens
+      (inputTokens * costPerInputToken) +
+      (outputTokens * costPerOutputToken)
     );
+
+    console.log('💰 Cost tracking updated:', {
+      imageTokens,
+      promptTokens: apiResponse.usage.prompt_tokens,
+      completionTokens: apiResponse.usage.completion_tokens,
+      totalTokens: inputTokens + outputTokens,
+      estimatedCost: this.costTracking.estimatedCost
+    });
 
     await this.saveCostTracking();
 
@@ -372,8 +399,7 @@ Respond in JSON format:
         const apiCallTime = performance.now() - startApiCall;
 
         // Calculate and track token usage
-        const totalTokens = result.usage.total_tokens;
-        await this.updateCostTracking(totalTokens);
+        await this.updateCostTracking(result);
 
         const analysisText = result.choices[0].message.content;
 

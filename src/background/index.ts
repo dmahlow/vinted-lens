@@ -122,12 +122,14 @@ class VintedLensBackground {
     this.costTracking.monthlyTokens += tokens;
     this.costTracking.monthlyImages += 1;
 
-    // Calculate cost (approximate OpenAI GPT-4V pricing)
-    const costPerInputToken = 0.00001; // $0.01 per 1K tokens
-    const costPerOutputToken = 0.00003; // $0.03 per 1K tokens
+    // Calculate cost (GPT-4o-mini pricing)
+    // Input: $0.15 per 1M tokens = $0.00015 per 1K tokens
+    // Output: $0.60 per 1M tokens = $0.0006 per 1K tokens
+    const costPerInputToken = 0.00015; // $0.15 per 1M tokens
+    const costPerOutputToken = 0.0006; // $0.60 per 1M tokens
     this.costTracking.estimatedCost = (
-      (this.costTracking.monthlyTokens * costPerInputToken) +
-      (this.costTracking.monthlyTokens * 0.2 * costPerOutputToken) // Assuming output is ~20% of input
+      (this.costTracking.monthlyTokens * 0.8 * costPerInputToken) + // Assuming 80% input tokens
+      (this.costTracking.monthlyTokens * 0.2 * costPerOutputToken)  // Assuming 20% output tokens
     );
 
     await this.saveCostTracking();

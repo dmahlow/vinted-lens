@@ -60,6 +60,8 @@ class VintedLensContent {
 
     // Set up observers if endless scroll is enabled
     if (this.state.endlessScroll) {
+      console.log('♾️ Setting up endless scroll mode');
+      this.state.isScanning = true;
       this.setupIntersectionObserver();
       this.setupMutationObserver();
     }
@@ -119,9 +121,18 @@ class VintedLensContent {
   private setupIntersectionObserver(): void {
     console.log('🔍 Setting up intersection observer');
     this.observer = new IntersectionObserver(entries => {
+      console.log('🔍 Intersection observer triggered:', {
+        entries: entries.length,
+        intersecting: entries.filter(e => e.isIntersecting).length
+      });
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           const element = entry.target as HTMLElement;
+          console.log('🔍 Element intersecting:', {
+            id: element.id,
+            hasId: !!element.id,
+            classes: element.classList.toString()
+          });
           if (!this.observedProducts.has(element.id)) {
             this.queueProductForAnalysis(element);
           }
@@ -164,9 +175,25 @@ class VintedLensContent {
   }
 
   private queueProductForAnalysis(element: HTMLElement): void {
+    console.log('🔄 Queueing product:', {
+      elementId: element.id,
+      isScanning: this.state.isScanning,
+      queueLength: this.scanQueue.length,
+      activeProducts: this.activeProducts.size
+    });
+
     const imgElement = element.querySelector(Selectors.ProductImage) as HTMLImageElement;
     const titleElement = element.querySelector(Selectors.ProductTitle);
     const descElement = element.querySelector(Selectors.ProductDescription);
+
+    if (!imgElement || !titleElement || !descElement) {
+      console.log('⚠️ Missing required elements:', {
+        hasImage: !!imgElement,
+        hasTitle: !!titleElement,
+        hasDescription: !!descElement
+      });
+      return;
+    }
 
     if (imgElement && titleElement && descElement) {
       const product: ProductItem = {

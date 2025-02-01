@@ -26,7 +26,6 @@ class VintedLensBackground {
   private requestQueue: AnalyzeProductPayload[] = [];
   private activeRequests = new Set<string>();
   private readonly MAX_CONCURRENT = 8;
-  private readonly RATE_LIMIT_DELAY = 20000; // 20s for 3 RPM
   private queueProcessor: NodeJS.Timeout | null = null;
 
   constructor() {
@@ -194,10 +193,8 @@ class VintedLensBackground {
     } finally {
       this.activeRequests.delete(payload.product.id);
 
-      // Schedule next process after rate limit delay
-      setTimeout(() => {
-        this.processQueue();
-      }, this.RATE_LIMIT_DELAY);
+      // Process next item immediately
+      this.processQueue();
     }
 
     // Process next item if we have capacity
@@ -316,7 +313,7 @@ Respond in JSON format:
         });
 
         const requestBody = {
-          model: 'gpt-4-vision-preview',
+          model: 'gpt-4o-mini',
           messages,
           max_tokens: 300
         };

@@ -1,15 +1,17 @@
 # Vinted Lens
 
-AI-powered visual filtering for Vinted.com using Claude vision capabilities. This Firefox extension analyzes product images in real-time and filters items based on your preferences and search criteria.
+AI-powered visual filtering for Vinted.com using OpenAI's GPT-4V vision capabilities. This Firefox extension analyzes product images in real-time and filters items based on your preferences and search criteria.
 
 ## Features
 
-- Real-time image analysis using Claude's vision capabilities
+- Real-time image analysis using GPT-4V vision capabilities
 - Visual filtering of products based on preferences (materials, styles, etc.)
 - Specific search functionality (e.g., "wool v-neck in red")
 - Smooth fade effects for non-matching items
 - Configurable preferences and search terms
-- Endless scroll support
+- Endless scroll support with parallel processing
+- Cost tracking and budget management
+- Detailed token usage analytics
 
 ## Installation
 
@@ -23,14 +25,30 @@ AI-powered visual filtering for Vinted.com using Claude vision capabilities. Thi
 
 1. Click the Vinted Lens icon in your browser toolbar
 2. Click "Open Settings" to configure:
-   - Enter your Anthropic API key
-   - Set default preferences
+   - Enter your OpenAI API key
+   - Set image analysis detail (low/high/auto)
+   - Set monthly cost limit
+   - Configure default preferences
+   - Enable/disable endless scroll
 
-To get an Anthropic API key:
-1. Go to [Anthropic Console](https://console.anthropic.com/)
+To get an OpenAI API key:
+1. Go to [OpenAI Platform](https://platform.openai.com/)
 2. Create an account or sign in
 3. Navigate to API Keys
-4. Generate a new key
+4. Create a new secret key
+
+## Cost Management
+
+The extension tracks API usage and costs:
+- Input tokens: $0.15 per 1M tokens
+- Output tokens: $0.60 per 1M tokens
+- Image tokens: 85-765 per image based on detail level
+
+Features:
+- Monthly cost tracking
+- Budget limits with automatic cutoff
+- Detailed token usage analytics
+- Cost-efficient image analysis options
 
 ## Usage
 
@@ -42,6 +60,11 @@ To get an Anthropic API key:
    - Set preferences (e.g., "wool, silk, v-neck")
    - Enter specific search terms
    - Access settings
+6. Monitor usage in settings:
+   - View token consumption
+   - Track estimated costs
+   - Reset usage stats
+   - Adjust cost limits
 
 ## Development
 

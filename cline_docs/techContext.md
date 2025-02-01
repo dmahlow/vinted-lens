@@ -1,114 +1,142 @@
 # Technical Context: Vinted Lens
 
-## Technologies Used
+## Core Technologies
 
-### Core Technologies
-- Firefox WebExtensions API
-- JavaScript/TypeScript
-- HTML/CSS
-- Canvas API
-- OpenAI GPT-4V API
+### API Integration
+- OpenAI GPT-4V for image analysis
+- REST API with JSON responses
+- Base URL: api.openai.com/v1/chat/completions
+- Model: gpt-4o-mini
 
-### Development Tools
-- web-ext (Firefox extension development tool)
-- TypeScript compiler
-- ESLint/Prettier
+### Token Management
+- Input tokens: $0.15 per 1M tokens
+- Output tokens: $0.60 per 1M tokens
+- Image tokens:
+  * Low detail: 85 tokens
+  * High detail: 765-1105 tokens
+  * Auto mode: Uses high detail estimate
+
+### Cost Calculation
+```typescript
+const costPerInputToken = 0.00015;  // $0.15 per 1M tokens
+const costPerOutputToken = 0.0006;  // $0.60 per 1M tokens
+
+totalCost = (inputTokens * costPerInputToken) +
+           (outputTokens * costPerOutputToken)
+```
+
+### Development Stack
+- TypeScript for type safety
+- Webpack for bundling
 - Jest for testing
-- webpack for bundling
+- Firefox WebExtensions API
+- Web-ext for packaging
 
-### APIs and Libraries
-1. Firefox WebExtensions
-   - tabs API
-   - storage API
-   - runtime messaging
-   - webRequest API
+## Architecture
 
-2. OpenAI GPT-4V
-   - Vision API capabilities
-   - Markdown-formatted responses
-   - Rate limits and quotas
-   - Cost tracking features
+### Background Script
+- Handles API communication
+- Manages token tracking
+- Controls parallel processing
+- Enforces cost limits
 
-## Development Setup
-1. Extension Development
-   - Firefox Developer Edition
-   - web-ext for testing
-   - Hot reload capabilities
-   - Source maps enabled
+### Content Script
+- Detects product grids
+- Manages intersection observer
+- Handles endless scroll
+- Updates UI based on analysis
 
-2. Build Process
-   - TypeScript compilation
-   - Asset bundling
-   - Manifest generation
-   - ZIP packaging
+### Options Page
+- API key management
+- Cost limit settings
+- Usage statistics
+- Token analytics
 
-3. Testing Environment
-   - Jest for unit tests
-   - Playwright for E2E testing
-   - Mock API responses
-   - Firefox debugging tools
+### Popup
+- Quick preferences
+- Search terms
+- Settings access
 
-## Technical Constraints
+## Data Flow
 
-### Browser Limitations
-- Cross-origin restrictions
-- Viewport capture resolution limits
-- Screen size variations
-- DOM manipulation limits
-- Extension manifest v3 requirements
-- Memory constraints for large screenshots
+1. Content Detection
+   - Intersection observer tracks products
+   - Queue system for parallel processing
+   - Batch size of 8 concurrent requests
 
-### API Constraints
-- OpenAI API rate limits (3 RPM for GPT-4V)
-- Response time (1-2s typical)
-- Cost per API call ($0.01/1K input tokens)
-- Image size limitations (max 20MB)
-- Token limits (max 4096 tokens)
+2. Image Analysis
+   - Base64 encode images
+   - Construct GPT-4V prompts
+   - Track token usage
+   - Parse JSON responses
 
-### Performance Requirements
-- Minimal UI lag
-- Efficient viewport capture
-- Optimized screenshot quality
-- Memory management for large images
-- Battery consumption optimization
-- Smooth visual transitions
+3. Cost Management
+   - Track input/output tokens separately
+   - Add image token costs
+   - Calculate running totals
+   - Enforce budget limits
 
-### Security Considerations
-- API key storage
-- Screenshot data handling
-- Content security policy
-- User data privacy
-- Viewport data transmission
-- Grid position validation
+## State Management
 
-## Development Guidelines
-1. Code Organization
-   - Feature-based structure
-   - Clear separation of concerns
-   - TypeScript for type safety
-   - Documented interfaces
+### Local Storage
+- API key (encrypted)
+- Preferences
+- Cost limits
+- Usage statistics
+- Token counts
 
-2. Performance
-   - Debounced scroll handling
-   - Optimized viewport capture
-   - Memory management for screenshots
-   - Efficient grid position tracking
-   - Resource cleanup
-   - Cache invalidation strategy
-   - Response caching
-   - Token optimization
+### Runtime State
+- Active requests
+- Queue status
+- Analysis results
+- Token tracking
 
-3. Error Handling
-   - Graceful degradation
-   - User feedback
-   - Error logging
-   - Recovery strategies
-   - Rate limit handling
-   - Budget enforcement
+## Error Handling
 
-4. Testing
-   - Unit test coverage
-   - Integration testing
-   - Visual regression tests
-   - Performance benchmarks
-   - Cost efficiency tests
+### API Errors
+- Rate limits: Exponential backoff
+- Auth errors: Clear key, prompt user
+- Network errors: Auto-retry
+- Malformed responses: Skip item
+
+### Cost Control
+- Budget exceeded: Stop processing
+- High usage warning: User alert
+- Reset option: Clear statistics
+- Monthly auto-reset
+
+## Performance
+
+### Parallel Processing
+- Max 8 concurrent requests
+- Queue management
+- Priority system
+- Error recovery
+
+### Token Optimization
+- Smart detail level
+- Efficient prompts
+- Response caching
+- Batch processing
+
+## Development Workflow
+
+### Build Process
+```bash
+npm run build        # Production build
+npm run start:dev    # Development mode
+npm run package      # Create extension
+npm test            # Run tests
+```
+
+### Testing Strategy
+- Unit tests for utilities
+- Integration tests for API
+- End-to-end for UI
+- Performance benchmarks
+
+### Deployment
+- Firefox Add-ons workflow
+- Automated builds
+- Version management
+- Update notifications

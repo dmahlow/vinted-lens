@@ -1,43 +1,42 @@
 # Active Context: Vinted Lens
 
 ## Current Focus
-Re-enabling parallel processing with OpenAI GPT-4V
+Cost tracking and optimization with GPT-4V
 
 ## Recent Changes
-- Migrated from Claude to OpenAI GPT-4V
-- Added JSON extraction from markdown responses
-- Updated options page for OpenAI settings
-- Added cost tracking and budget controls
-- Added debug logging for API responses
-- Fixed API key handling
+- Fixed endless scroll mode stopping after first batch
+- Added proper token counting for images
+- Separated input/output token tracking
+- Updated cost calculation to match OpenAI pricing
+- Added reset cost button to settings
+- Added detailed token usage display
 
 ## Next Steps
-1. Re-enable Parallel Processing
-   - Restore batch processing
-   - Implement request queuing
-   - Add rate limiting for OpenAI
-   - Test concurrent requests
-   - Handle rate limits properly
+1. Cost Optimization
+   - Analyze token usage patterns
+   - Optimize prompts for efficiency
+   - Implement smart detail level selection
+   - Add cost prediction algorithms
 
-2. Optimize Performance
+2. Performance Improvements
    - Fine-tune batch sizes
-   - Optimize token usage
-   - Cache common responses
+   - Optimize image loading
    - Improve error recovery
+   - Add request retries
 
-3. Enhance Cost Management
-   - Add detailed cost analytics
-   - Implement smart budget controls
-   - Add usage predictions
-   - Optimize token efficiency
+3. User Experience
+   - Add cost usage graphs
+   - Add export/import settings
+   - Add usage statistics
+   - Improve error messages
 
 ## Current Priorities
-1. Performance improvement with parallel processing
-2. Cost optimization and analytics
-3. User feedback on performance
+1. Token usage optimization
+2. Cost prediction features
+3. Usage analytics improvements
 
 ## Open Questions
-- Optimal batch size for parallel requests
-- Best practices for rate limit handling
-- Most efficient prompt structure
-- Cost prediction algorithms
+- Optimal image detail level for cost/accuracy balance
+- Best practices for token optimization
+- Most efficient prompt structures
+- Cost prediction methodologies

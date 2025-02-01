@@ -10,6 +10,7 @@ class VintedLensOptions {
   private apiKeyInput: HTMLInputElement;
   private imageDetailSelect: HTMLSelectElement;
   private costLimitInput: HTMLInputElement;
+  private defaultPreferencesInput: HTMLInputElement;
   private usageStatsElement: HTMLElement;
   private saveButton: HTMLButtonElement;
   private statusElement: HTMLElement;
@@ -18,6 +19,7 @@ class VintedLensOptions {
     this.apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
     this.imageDetailSelect = document.getElementById('imageDetail') as HTMLSelectElement;
     this.costLimitInput = document.getElementById('costLimit') as HTMLInputElement;
+    this.defaultPreferencesInput = document.getElementById('defaultPreferences') as HTMLInputElement;
     this.usageStatsElement = document.getElementById('usageStats') as HTMLElement;
     this.saveButton = document.getElementById('save') as HTMLButtonElement;
     this.statusElement = document.getElementById('status') as HTMLElement;
@@ -31,12 +33,14 @@ class VintedLensOptions {
       StorageKeys.ApiKey,
       StorageKeys.ImageDetail,
       StorageKeys.CostLimit,
-      StorageKeys.MonthlyUsage
+      StorageKeys.MonthlyUsage,
+      StorageKeys.Preferences
     ]);
 
     this.apiKeyInput.value = storage[StorageKeys.ApiKey] || '';
     this.imageDetailSelect.value = storage[StorageKeys.ImageDetail] || 'auto';
     this.costLimitInput.value = storage[StorageKeys.CostLimit]?.toString() || '';
+    this.defaultPreferencesInput.value = (storage[StorageKeys.Preferences] || []).join(', ');
 
     // Update usage stats
     await this.updateUsageStats(storage[StorageKeys.MonthlyUsage]);
@@ -96,11 +100,18 @@ class VintedLensOptions {
         return;
       }
 
+      // Parse default preferences
+      const defaultPreferences = this.defaultPreferencesInput.value
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p);
+
       // Save settings first
       await browser.storage.local.set({
         [StorageKeys.ApiKey]: apiKey,
         [StorageKeys.ImageDetail]: imageDetail,
-        [StorageKeys.CostLimit]: costLimit
+        [StorageKeys.CostLimit]: costLimit,
+        [StorageKeys.Preferences]: defaultPreferences
       });
 
       // Then reload background script to apply changes

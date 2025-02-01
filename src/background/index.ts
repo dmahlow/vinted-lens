@@ -22,6 +22,13 @@ class VintedLensBackground {
     lastReset: new Date().toISOString()
   };
 
+  // Parallel processing
+  private requestQueue: AnalyzeProductPayload[] = [];
+  private activeRequests = new Set<string>();
+  private readonly MAX_CONCURRENT = 8;
+  private readonly RATE_LIMIT_DELAY = 20000; // 20s for 3 RPM
+  private queueProcessor: NodeJS.Timeout | null = null;
+
   constructor() {
     this.initialize();
   }
@@ -135,26 +142,29 @@ class VintedLensBackground {
   private async handleMessage(message: Message): Promise<void> {
     switch (message.type) {
       case 'ANALYZE_PRODUCT':
-        await this.handleProductAnalysis(message.payload as AnalyzeProductPayload);
+        this.handleProductAnalysis(message.payload as AnalyzeProductPayload);
         break;
     }
   }
 
-  private isValidApiKey(key: string | null): boolean {
-    return !!key && (key.startsWith('sk-') || key.startsWith('sk-proj-'));
-  }
-
-  private async handleProductAnalysis(payload: AnalyzeProductPayload): Promise<void> {
-    console.log('📦 Analyzing product:', payload.product.id);
-
-    if (!this.isValidApiKey(this.apiKey)) {
-      console.error('❌ No valid API key found');
-      await this.showToast({
-        message: 'Please set your API key in the extension options',
-        type: 'error'
+  private async processQueue(): Promise<void> {
+    if (this.requestQueue.length === 0 || this.activeRequests.size >= this.MAX_CONCURRENT) {
+      console.log('⏸️ Queue processing paused:', {
+        queueLength: this.requestQueue.length,
+        activeRequests: this.activeRequests.size,
+        maxConcurrent: this.MAX_CONCURRENT
       });
       return;
     }
+
+    const payload = this.requestQueue.shift()!;
+    this.activeRequests.add(payload.product.id);
+    console.log('🔄 Processing from queue:', {
+      productId: payload.product.id,
+      queueLength: this.requestQueue.length,
+      activeRequests: this.activeRequests.size,
+      maxConcurrent: this.MAX_CONCURRENT
+    });
 
     try {
       const startTime = performance.now();
@@ -175,13 +185,56 @@ class VintedLensBackground {
           }
         }
       });
-
     } catch (error) {
       console.error('❌ Analysis failed:', error);
       await this.showToast({
         message: 'Failed to analyze product',
         type: 'error'
       });
+    } finally {
+      this.activeRequests.delete(payload.product.id);
+
+      // Schedule next process after rate limit delay
+      setTimeout(() => {
+        this.processQueue();
+      }, this.RATE_LIMIT_DELAY);
+    }
+
+    // Process next item if we have capacity
+    if (this.activeRequests.size < this.MAX_CONCURRENT) {
+      this.processQueue();
+    }
+  }
+
+  private isValidApiKey(key: string | null): boolean {
+    return !!key && (key.startsWith('sk-') || key.startsWith('sk-proj-'));
+  }
+
+  private handleProductAnalysis(payload: AnalyzeProductPayload): void {
+    console.log('📦 Queueing product:', payload.product.id);
+
+    if (!this.isValidApiKey(this.apiKey)) {
+      console.error('❌ No valid API key found');
+      this.showToast({
+        message: 'Please set your API key in the extension options',
+        type: 'error'
+      });
+      return;
+    }
+
+    // Add to queue
+    this.requestQueue.push(payload);
+    console.log('📥 Added to queue:', {
+      productId: payload.product.id,
+      queueLength: this.requestQueue.length,
+      activeRequests: this.activeRequests.size,
+      maxConcurrent: this.MAX_CONCURRENT
+    });
+
+    // Start processing if we have capacity
+    if (this.activeRequests.size < this.MAX_CONCURRENT) {
+      console.log('▶️ Starting queue processing');
+      this.processQueue();
     }
   }
 
@@ -263,7 +316,7 @@ Respond in JSON format:
         });
 
         const requestBody = {
-          model: 'gpt-4o-mini',
+          model: 'gpt-4-vision-preview',
           messages,
           max_tokens: 300
         };

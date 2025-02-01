@@ -14,6 +14,7 @@ class VintedLensOptions {
   private endlessScrollInput: HTMLInputElement;
   private usageStatsElement: HTMLElement;
   private saveButton: HTMLButtonElement;
+  private resetCostButton: HTMLButtonElement;
   private statusElement: HTMLElement;
 
   constructor() {
@@ -24,6 +25,7 @@ class VintedLensOptions {
     this.endlessScrollInput = document.getElementById('endlessScroll') as HTMLInputElement;
     this.usageStatsElement = document.getElementById('usageStats') as HTMLElement;
     this.saveButton = document.getElementById('save') as HTMLButtonElement;
+    this.resetCostButton = document.getElementById('resetCost') as HTMLButtonElement;
     this.statusElement = document.getElementById('status') as HTMLElement;
 
     this.initialize();
@@ -51,6 +53,7 @@ class VintedLensOptions {
 
     // Setup event listeners
     this.saveButton.addEventListener('click', () => this.saveOptions());
+    this.resetCostButton.addEventListener('click', () => this.resetCostTracking());
   }
 
   private async updateUsageStats(usage?: CostTracking): Promise<void> {
@@ -126,6 +129,33 @@ class VintedLensOptions {
     } catch (error) {
       console.error('Failed to save options:', error);
       this.showStatus('Failed to save options', 'error');
+    }
+  }
+
+  private async resetCostTracking(): Promise<void> {
+    try {
+      const now = new Date();
+      const newUsage: CostTracking = {
+        monthlyTokens: 0,
+        monthlyImages: 0,
+        estimatedCost: 0,
+        lastReset: now.toISOString()
+      };
+
+      await browser.storage.local.set({
+        [StorageKeys.MonthlyUsage]: newUsage
+      });
+
+      // Update display
+      await this.updateUsageStats(newUsage);
+
+      // Reload background script to apply changes
+      await browser.runtime.reload();
+
+      this.showStatus('Usage stats reset', 'success');
+    } catch (error) {
+      console.error('Failed to reset usage stats:', error);
+      this.showStatus('Failed to reset usage stats', 'error');
     }
   }
 

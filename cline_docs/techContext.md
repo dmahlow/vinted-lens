@@ -7,7 +7,7 @@
 - JavaScript/TypeScript
 - HTML/CSS
 - Canvas API
-- Anthropic Claude API
+- OpenAI GPT-4V API
 
 ### Development Tools
 - web-ext (Firefox extension development tool)
@@ -23,10 +23,11 @@
    - runtime messaging
    - webRequest API
 
-2. Anthropic Claude
+2. OpenAI GPT-4V
    - Vision API capabilities
-   - Structured output
+   - Markdown-formatted responses
    - Rate limits and quotas
+   - Cost tracking features
 
 ## Development Setup
 1. Extension Development
@@ -58,10 +59,11 @@
 - Memory constraints for large screenshots
 
 ### API Constraints
-- Anthropic API rate limits
-- Response time considerations
-- Cost per API call
-- Image size limitations
+- OpenAI API rate limits (3 RPM for GPT-4V)
+- Response time (1-2s typical)
+- Cost per API call ($0.01/1K input tokens)
+- Image size limitations (max 20MB)
+- Token limits (max 4096 tokens)
 
 ### Performance Requirements
 - Minimal UI lag
@@ -93,15 +95,20 @@
    - Efficient grid position tracking
    - Resource cleanup
    - Cache invalidation strategy
+   - Response caching
+   - Token optimization
 
 3. Error Handling
    - Graceful degradation
    - User feedback
    - Error logging
    - Recovery strategies
+   - Rate limit handling
+   - Budget enforcement
 
 4. Testing
    - Unit test coverage
    - Integration testing
    - Visual regression tests
    - Performance benchmarks
+   - Cost efficiency tests

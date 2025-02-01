@@ -1,34 +1,41 @@
 # Active Context: Vinted Lens
 
 ## Current Focus
-Testing and validating viewport-based analysis
+Switching from Claude to OpenAI and re-enabling parallel processing
 
 ## Recent Changes
-- Switched to viewport screenshot approach
-- Implemented grid position tracking
-- Added confidence scoring
-- Updated manifest permissions
-- Enhanced error handling
-- Added rate limiting
+- Fixed image handling with Claude API
+- Added base64 image conversion
+- Added CORS header for browser requests
+- Improved error logging and debugging
+- Fixed API key handling
 
 ## Next Steps
-1. Test viewport capture on different screen sizes
-2. Validate grid position calculations
-3. Fine-tune rate limiting parameters
-4. Test scrolled content handling
-5. Implement caching for analyzed viewports
-6. Add error tracking for viewport capture
-7. Document viewport-based approach
-8. Create user guide for new features
+1. Switch to OpenAI GPT-4V-Mini
+   - Update API client
+   - Modify image handling for OpenAI format
+   - Update prompts for GPT-4V
+   - Test cost efficiency
+
+2. Re-enable Parallel Processing
+   - Restore batch processing
+   - Implement request queuing
+   - Add rate limiting for OpenAI
+   - Test concurrent requests
+
+3. Add Cost Tracking
+   - Track token usage
+   - Calculate costs per request
+   - Add cost summary to UI
+   - Implement budget limits
 
 ## Current Priorities
-1. Verify viewport capture reliability
-2. Test grid position accuracy
-3. Optimize performance
-4. Update documentation
+1. Cost optimization with GPT-4V
+2. Performance improvement with parallel processing
+3. User feedback on costs
 
 ## Open Questions
-- How to handle different screen resolutions
-- Best strategy for scrolled content analysis
-- Optimal cache duration for analyzed viewports
-- Performance impact of full viewport captures
+- Best batch size for parallel requests to OpenAI
+- How to structure prompts for GPT-4V efficiency
+- Optimal way to track and display costs
+- How to handle rate limits with parallel processing

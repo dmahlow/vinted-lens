@@ -2,28 +2,73 @@
 @keyframes pulse {
   0% {
     opacity: 1;
+    transform: scale(1);
   }
   50% {
-    opacity: 0.6;
+    opacity: 0.7;
+    transform: scale(0.98);
   }
   100% {
     opacity: 1;
+    transform: scale(1);
   }
 }
 
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Base styles for grid items */
+.feed-grid__item {
+  transition: all 0.3s ease-in-out;
+  position: relative;
+}
+
+/* Analysis states */
 .vinted-lens-analyzing {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+.vinted-lens-analyzing::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 3px solid rgba(9, 132, 127, 0.3);
+  border-top-color: #09847F;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 2;
+}
+
+.vinted-lens-transition {
+  transition: all 0.5s ease-in-out;
+}
+
 .vinted-lens-hidden {
-  opacity: 0;
-  transition: opacity 0.5s ease-out;
+  opacity: 0.15;
+  filter: grayscale(100%);
   pointer-events: none;
+  transform: scale(0.95);
 }
 
 .vinted-lens-match {
   opacity: 1;
-  transition: opacity 0.5s ease-in;
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(9, 132, 127, 0.15);
+}
+
+.vinted-lens-low-confidence {
+  opacity: 0.8;
+  transform: scale(1);
 }
 
 /* Toast notification */
@@ -48,21 +93,39 @@
   opacity: 1;
 }
 
-/* Grid item overlay */
-.vinted-lens-overlay {
+/* Status indicators */
+.vinted-lens-match::after {
+  content: '✓';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(9, 132, 127, 0.1);
-  border: 2px solid #09847F;
-  border-radius: 4px;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease-in-out;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #09847F;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  box-shadow: 0 2px 4px rgba(9, 132, 127, 0.2);
+  z-index: 2;
 }
 
-.vinted-lens-match .vinted-lens-overlay {
-  opacity: 1;
+.vinted-lens-low-confidence::after {
+  content: '?';
+  background: #FFA500;
+}
+
+/* Hover effects */
+.feed-grid__item:hover {
+  opacity: 1 !important;
+  transform: scale(1.02) !important;
+  transition: all 0.2s ease-in;
+  z-index: 1;
+}
+
+/* Make sure status indicators stay on top */
+.feed-grid__item::after {
+  z-index: 2;
 }

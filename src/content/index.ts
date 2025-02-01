@@ -1,174 +1,65 @@
 import {
   Message,
   Selectors,
-  GridItem,
+  ProductItem,
   ExtensionState,
-  GridAnalysis,
-  GridAnalysisItem,
+  ProductAnalysis,
   AnalysisCompletePayload,
   UpdatePreferencesPayload,
   UpdateSearchPayload,
   ShowToastPayload,
-  ViewportData,
-  GridPosition
+  StartScanPayload,
+  StopScanPayload,
+  ScanProgress,
+  ScanProgressPayload,
+  AnalysisStatusPayload,
+  AnalysisStage
 } from '../types';
-import { debounce } from '../utils';
 
 class VintedLensContent {
   private state: ExtensionState = {
     isEnabled: true,
-    isAnalyzing: false,
+    isScanning: false,
     preferences: [],
-    currentSearch: null
+    currentSearch: null,
+    scanProgress: null
   };
+
+  private scanQueue: ProductItem[] = [];
+  private currentProduct: ProductItem | null = null;
 
   constructor() {
     this.initialize();
   }
 
   private async initialize(): Promise<void> {
+    console.log('🔍 Vinted Lens: Initializing content script');
+
     // Load initial state from storage
     const storage = await browser.storage.local.get(['preferences', 'currentSearch']);
     this.state.preferences = storage.preferences || [];
     this.state.currentSearch = storage.currentSearch || null;
+    console.log('📋 Loaded preferences:', this.state.preferences);
+    console.log('🔎 Current search:', this.state.currentSearch);
 
     // Set up message listeners
     browser.runtime.onMessage.addListener(this.handleMessage.bind(this));
-
-    // Set up mutation observer for dynamic content
-    this.setupGridObserver();
-
-    // Initial check for product grid
-    this.checkForProductGrid();
-  }
-
-  private setupGridObserver(): void {
-    const observer = new MutationObserver(
-      debounce(() => {
-        if (!this.state.isAnalyzing) {
-          this.checkForProductGrid();
-        }
-      }, 500)
-    );
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  }
-
-  private checkForProductGrid(): void {
-    const grid = document.querySelector(Selectors.ProductGrid);
-    if (!grid) return;
-
-    const items = this.getVisibleGridItems();
-    if (items.length >= 10) { // 5x2 grid
-      this.analyzeGrid(items);
-    }
-  }
-
-  private getVisibleGridItems(): GridItem[] {
-    const items: GridItem[] = [];
-    const gridItems = document.querySelectorAll(Selectors.ProductItem);
-    const gridSize = { rows: 2, columns: 5 }; // Fixed 5x2 grid
-
-    gridItems.forEach((item, index) => {
-      if (this.isElementInViewport(item)) {
-        // Calculate grid position
-        const position: GridPosition = {
-          row: Math.floor(index / gridSize.columns),
-          column: index % gridSize.columns
-        };
-
-        // Only include items that fit in our 5x2 grid
-        if (position.row < gridSize.rows && position.column < gridSize.columns) {
-          items.push({
-            id: `item-${index}`,
-            position,
-            element: item as HTMLElement
-          });
-        }
-      }
-    });
-
-    return items;
-  }
-
-  private isElementInViewport(element: Element): boolean {
-    const rect = element.getBoundingClientRect();
-    return (
-      rect.top >= 0 &&
-      rect.left >= 0 &&
-      rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-      rect.right <= (window.innerWidth || document.documentElement.clientWidth)
-    );
-  }
-
-  private async captureViewport(): Promise<ViewportData | null> {
-    try {
-      // Get current window ID
-      const currentWindow = await browser.windows.getCurrent();
-      if (!currentWindow.id) {
-        throw new Error('Could not determine window ID');
-      }
-
-      // Capture the visible viewport
-      const screenshot = await browser.tabs.captureVisibleTab(currentWindow.id, {
-        format: 'jpeg',
-        quality: 85
-      });
-
-      return {
-        screenshot,
-        gridSize: {
-          rows: 2,
-          columns: 5
-        }
-      };
-    } catch (error) {
-      console.error('Failed to capture viewport:', error);
-      return null;
-    }
-  }
-
-  private async analyzeGrid(items: GridItem[]): Promise<void> {
-    if (this.state.isAnalyzing) return;
-
-    this.state.isAnalyzing = true;
-    items.forEach(item => {
-      item.element.classList.add('vinted-lens-analyzing');
-    });
-
-    try {
-      // Capture viewport screenshot
-      const viewport = await this.captureViewport();
-      if (!viewport) {
-        throw new Error('Failed to capture viewport');
-      }
-
-      // Send message to background script for analysis
-      await browser.runtime.sendMessage({
-        type: 'ANALYZE_GRID',
-        payload: { viewport }
-      });
-    } catch (error) {
-      console.error('Failed to analyze grid:', error);
-      this.showToast({
-        message: 'Failed to analyze items',
-        type: 'error'
-      });
-    } finally {
-      this.state.isAnalyzing = false;
-      items.forEach(item => {
-        item.element.classList.remove('vinted-lens-analyzing');
-      });
-    }
+    console.log('👂 Message listener set up');
   }
 
   private handleMessage(message: Message): void {
     switch (message.type) {
+      case 'START_SCAN':
+        this.handleStartScan(message.payload as StartScanPayload);
+        break;
+      case 'STOP_SCAN':
+        this.handleStopScan(message.payload as StopScanPayload);
+        break;
       case 'ANALYSIS_COMPLETE':
         this.handleAnalysisComplete(message.payload as AnalysisCompletePayload);
+        break;
+      case 'ANALYSIS_STATUS':
+        this.handleAnalysisStatus(message.payload as AnalysisStatusPayload);
         break;
       case 'UPDATE_PREFERENCES':
         this.handlePreferencesUpdate(message.payload as UpdatePreferencesPayload);
@@ -182,23 +73,226 @@ class VintedLensContent {
     }
   }
 
+  private handleAnalysisStatus(payload: AnalysisStatusPayload): void {
+    const { stage, productId, data } = payload;
+
+    switch (stage) {
+      case 'start':
+        console.log(`🤖 Analyzing product ${productId}:`, {
+          prompt: data?.prompt
+        });
+        break;
+
+      case 'complete':
+        console.log(`✅ Claude response for ${productId}:`, {
+          response: data?.response,
+          timing: data?.timing
+        });
+        break;
+
+      case 'error':
+        console.error(`❌ Analysis failed for ${productId}:`, {
+          error: data?.error
+        });
+        break;
+    }
+  }
+
+  private handleStartScan(payload: StartScanPayload): void {
+    if (this.state.isScanning) {
+      console.log('⏳ Scan already in progress');
+      return;
+    }
+
+    // Update preferences and search term
+    this.state.preferences = payload.preferences;
+    this.state.currentSearch = payload.searchTerm;
+
+    // Get all unanalyzed products
+    this.scanQueue = this.getUnanalyzedProducts();
+
+    if (this.scanQueue.length === 0) {
+      this.showToast({
+        message: 'No items to analyze',
+        type: 'info'
+      });
+      return;
+    }
+
+    // Start scanning
+    this.state.isScanning = true;
+    this.state.scanProgress = {
+      total: this.scanQueue.length,
+      current: 0,
+      currentItem: null,
+      startTime: Date.now()
+    };
+
+    this.updateProgress();
+    this.processNextProduct();
+  }
+
+  private handleStopScan(payload: StopScanPayload): void {
+    if (!this.state.isScanning) return;
+
+    console.log('🛑 Stopping scan:', payload.reason);
+    this.scanQueue = [];
+    this.currentProduct = null;
+    this.state.isScanning = false;
+    this.state.scanProgress = null;
+
+    this.showToast({
+      message: payload.reason === 'complete'
+        ? 'Scan complete'
+        : 'Scan stopped',
+      type: payload.reason === 'error' ? 'error' : 'info'
+    });
+
+    this.updateProgress();
+  }
+
+  private getUnanalyzedProducts(): ProductItem[] {
+    const items: ProductItem[] = [];
+    const productElements = document.querySelectorAll(
+      `${Selectors.ProductItem}:not(.vinted-lens-analyzed)`
+    );
+
+    productElements.forEach((element, index) => {
+      const imgElement = element.querySelector(Selectors.ProductImage) as HTMLImageElement;
+      const titleElement = element.querySelector(Selectors.ProductTitle);
+      const descElement = element.querySelector(Selectors.ProductDescription);
+
+      if (imgElement && titleElement && descElement) {
+        items.push({
+          id: `item-${Date.now()}-${index}`,
+          element: element as HTMLElement,
+          imageUrl: imgElement.src,
+          title: titleElement.textContent || '',
+          description: descElement.getAttribute('title') || ''
+        });
+      }
+    });
+
+    return items;
+  }
+
+  private async processNextProduct(): Promise<void> {
+    if (!this.state.isScanning) return;
+
+    // If we have a current product, wait for it to finish
+    if (this.currentProduct) {
+      console.log('⏳ Waiting for current product to finish:', this.currentProduct.id);
+      return;
+    }
+
+    this.currentProduct = this.scanQueue.shift() || null;
+    if (!this.currentProduct) {
+      this.handleStopScan({ reason: 'complete' });
+      return;
+    }
+
+    const product = this.currentProduct;
+    console.log('🔄 Processing product:', product.id);
+
+    // Update progress
+    if (this.state.scanProgress) {
+      this.state.scanProgress.current++;
+      this.state.scanProgress.currentItem = product.title;
+      this.updateProgress();
+    }
+
+    // Add analyzing class
+    product.element.setAttribute('data-vinted-lens-id', product.id);
+    product.element.classList.add('vinted-lens-analyzing');
+
+    try {
+      // Send message to background script for analysis
+      console.log('📤 Sending product for analysis:', {
+        id: product.id,
+        imageUrl: product.imageUrl,
+        title: product.title,
+        queueSize: this.scanQueue.length
+      });
+
+      await browser.runtime.sendMessage({
+        type: 'ANALYZE_PRODUCT',
+        payload: {
+          product: {
+            ...product,
+            element: undefined // Can't send DOM elements
+          },
+          preferences: this.state.preferences,
+          searchTerm: this.state.currentSearch
+        }
+      });
+    } catch (error) {
+      console.error('❌ Product analysis failed:', error);
+      this.showToast({
+        message: 'Failed to analyze product',
+        type: 'error'
+      });
+      product.element.classList.remove('vinted-lens-analyzing');
+      this.currentProduct = null;
+      // Try next product after a short delay
+      setTimeout(() => this.processNextProduct(), 1000);
+    }
+  }
+
   private handleAnalysisComplete(payload: AnalysisCompletePayload): void {
-    const { analysis } = payload;
-    const gridItems = document.querySelectorAll(Selectors.ProductItem);
+    const { productId, analysis } = payload;
+    console.log('📥 Analysis complete:', {
+      productId,
+      matches: analysis.matches,
+      confidence: analysis.confidence,
+      timing: analysis.timing,
+      queueSize: this.scanQueue.length
+    });
 
-    analysis.items.forEach((item: GridAnalysisItem) => {
-      const index = (item.position.row * 5) + item.position.column;
-      const element = gridItems[index];
-      if (!element) return;
+    // Find the product element
+    const productElement = document.querySelector(
+      `${Selectors.ProductItem}[data-vinted-lens-id="${productId}"]`
+    ) as HTMLElement;
 
-      if (item.matches) {
-        element.classList.add('vinted-lens-match');
-        if (item.confidence < 0.8) {
-          element.classList.add('vinted-lens-low-confidence');
+    if (!productElement) {
+      console.warn('⚠️ No element found for product:', productId);
+      this.currentProduct = null;
+      setTimeout(() => this.processNextProduct(), 1000);
+      return;
+    }
+
+    // Remove analyzing state
+    productElement.classList.remove('vinted-lens-analyzing');
+    productElement.classList.add('vinted-lens-analyzed');
+
+    // Apply transition class first
+    productElement.classList.add('vinted-lens-transition');
+
+    // Use setTimeout to ensure transition is applied
+    setTimeout(() => {
+      if (analysis.matches) {
+        productElement.classList.add('vinted-lens-match');
+        if (analysis.confidence < 0.8) {
+          productElement.classList.add('vinted-lens-low-confidence');
         }
       } else {
-        element.classList.add('vinted-lens-hidden');
+        productElement.classList.add('vinted-lens-hidden');
       }
+
+      // Clear current product and process next after a short delay
+      this.currentProduct = null;
+      setTimeout(() => this.processNextProduct(), 500);
+    }, 0);
+  }
+
+  private updateProgress(): void {
+    if (!this.state.scanProgress) return;
+
+    // Send progress update
+    browser.runtime.sendMessage({
+      type: 'SCAN_PROGRESS',
+      payload: {
+        progress: this.state.scanProgress
+      } as ScanProgressPayload
     });
   }
 
@@ -213,11 +307,22 @@ class VintedLensContent {
   }
 
   private resetAnalysis(): void {
-    document.querySelectorAll('.vinted-lens-match, .vinted-lens-hidden, .vinted-lens-low-confidence')
+    // Stop any ongoing scan
+    if (this.state.isScanning) {
+      this.handleStopScan({ reason: 'user' });
+    }
+
+    // Clear analysis classes
+    document.querySelectorAll('.vinted-lens-match, .vinted-lens-hidden, .vinted-lens-low-confidence, .vinted-lens-analyzed')
       .forEach(element => {
-        element.classList.remove('vinted-lens-match', 'vinted-lens-hidden', 'vinted-lens-low-confidence');
+        element.classList.remove(
+          'vinted-lens-match',
+          'vinted-lens-hidden',
+          'vinted-lens-low-confidence',
+          'vinted-lens-analyzed'
+        );
+        element.removeAttribute('data-vinted-lens-id');
       });
-    this.checkForProductGrid();
   }
 
   private showToast(options: ShowToastPayload): void {

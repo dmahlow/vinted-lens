@@ -2,21 +2,39 @@ import {
   Message,
   StorageKeys,
   UpdatePreferencesPayload,
-  UpdateSearchPayload
+  UpdateSearchPayload,
+  StartScanPayload,
+  StopScanPayload,
+  ScanProgressPayload,
+  ScanProgress
 } from '../types';
-import { getStoredPreferences, debounce } from '../utils';
+import { debounce } from '../utils';
 
 class VintedLensPopup {
   private preferencesInput: HTMLInputElement;
   private searchInput: HTMLInputElement;
+  private scanButton: HTMLButtonElement;
+  private stopButton: HTMLButtonElement;
   private settingsButton: HTMLButtonElement;
   private statusElement: HTMLElement;
+  private progressSection: HTMLElement;
+  private progressBar: HTMLElement;
+  private progressCount: HTMLElement;
+  private progressPercent: HTMLElement;
+  private currentItem: HTMLElement;
 
   constructor() {
     this.preferencesInput = document.getElementById('preferences') as HTMLInputElement;
     this.searchInput = document.getElementById('search') as HTMLInputElement;
+    this.scanButton = document.getElementById('scan') as HTMLButtonElement;
+    this.stopButton = document.getElementById('stop') as HTMLButtonElement;
     this.settingsButton = document.getElementById('settings') as HTMLButtonElement;
     this.statusElement = document.getElementById('status') as HTMLElement;
+    this.progressSection = document.querySelector('.progress-section') as HTMLElement;
+    this.progressBar = document.querySelector('.progress-bar-fill') as HTMLElement;
+    this.progressCount = document.querySelector('.progress-count') as HTMLElement;
+    this.progressPercent = document.querySelector('.progress-percent') as HTMLElement;
+    this.currentItem = document.querySelector('.current-item') as HTMLElement;
 
     this.initialize();
   }
@@ -47,10 +65,71 @@ class VintedLensPopup {
       this.updateSearch();
     }, 500));
 
+    // Handle scan button click
+    this.scanButton.addEventListener('click', async () => {
+      // Disable scan button while scanning
+      this.scanButton.disabled = true;
+      this.scanButton.style.display = 'none';
+      this.stopButton.style.display = 'block';
+
+      // Show progress section
+      this.progressSection.classList.add('active');
+
+      await this.startScan();
+    });
+
+    // Handle stop button click
+    this.stopButton.addEventListener('click', () => {
+      this.stopScan('user');
+
+      // Re-enable scan button
+      this.scanButton.disabled = false;
+      this.scanButton.style.display = 'block';
+      this.stopButton.style.display = 'none';
+
+      // Hide progress section
+      this.progressSection.classList.remove('active');
+    });
+
     // Handle settings button click
     this.settingsButton.addEventListener('click', () => {
       browser.runtime.openOptionsPage();
     });
+
+    // Listen for progress updates
+    browser.runtime.onMessage.addListener((message: Message) => {
+      if (message.type === 'SCAN_PROGRESS') {
+        this.handleProgress(message.payload as ScanProgressPayload);
+      }
+    });
+  }
+
+  private handleProgress(payload: ScanProgressPayload): void {
+    const { progress } = payload;
+    const percent = Math.round((progress.current / progress.total) * 100);
+
+    // Update progress bar
+    this.progressBar.style.width = `${percent}%`;
+
+    // Update text
+    this.progressCount.textContent = `${progress.current}/${progress.total} items`;
+    this.progressPercent.textContent = `${percent}%`;
+
+    // Update current item
+    this.currentItem.textContent = progress.currentItem ?
+      `Analyzing: ${progress.currentItem}` :
+      'Scanning items...';
+
+    // If scan is complete, reset UI
+    if (progress.current === progress.total) {
+      setTimeout(() => {
+        this.scanButton.disabled = false;
+        this.scanButton.style.display = 'block';
+        this.stopButton.style.display = 'none';
+        this.progressSection.classList.remove('active');
+        this.updateStatus('Scan complete');
+      }, 1000);
+    }
   }
 
   private async updatePreferences(): Promise<void> {
@@ -88,11 +167,47 @@ class VintedLensPopup {
     });
   }
 
+  private async startScan(): Promise<void> {
+    // Get current preferences and search
+    const preferences = this.preferencesInput.value
+      .split(',')
+      .map(pref => pref.trim())
+      .filter(pref => pref.length > 0);
+
+    const searchTerm = this.searchInput.value.trim() || null;
+
+    // Update UI
+    this.scanButton.style.display = 'none';
+    this.stopButton.style.display = 'block';
+    this.progressSection.classList.add('active');
+    this.updateStatus('Scanning items...');
+
+    // Start scan
+    await this.broadcastMessage({
+      type: 'START_SCAN',
+      payload: {
+        preferences,
+        searchTerm
+      } as StartScanPayload
+    });
+  }
+
+  private async stopScan(reason: 'user' | 'error' | 'complete'): Promise<void> {
+    // Update UI
+    this.scanButton.style.display = 'block';
+    this.stopButton.style.display = 'none';
+    this.progressSection.classList.remove('active');
+    this.updateStatus(reason === 'complete' ? 'Scan complete' : 'Scan stopped');
+
+    // Stop scan
+    await this.broadcastMessage({
+      type: 'STOP_SCAN',
+      payload: { reason } as StopScanPayload
+    });
+  }
+
   private updateStatus(message: string): void {
     this.statusElement.textContent = message;
-    setTimeout(() => {
-      this.statusElement.textContent = 'Ready to analyze';
-    }, 2000);
   }
 
   private async broadcastMessage(message: Message): Promise<void> {

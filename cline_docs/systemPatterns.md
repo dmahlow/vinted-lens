@@ -8,24 +8,25 @@
    - Options Page: Configuration settings
 
 2. Core Components
-   - Grid Detector: Identifies and tracks product grid layout
-   - Screenshot Service: Captures 5x2 product image grids
-   - Claude Integration: Handles AI analysis pipeline
+   - Grid Detector: Identifies product items
+   - Image Processor: Handles base64 conversion and format
+   - AI Integration: Manages vision API requests
    - Filter Manager: Applies visibility changes based on AI results
    - Preference Store: Manages user settings and search criteria
+   - Cost Tracker: Monitors API usage and costs
 
 ## Technical Decisions
-1. Screenshot Implementation
-   - Use browser.tabs.captureVisibleTab for full viewport capture
-   - Send entire viewport as single image to Claude
-   - Grid position tracking for result mapping
-   - Base64 encoding for API transmission
+1. Image Processing
+   - Convert product images to base64
+   - Handle CORS requirements
+   - Support multiple image formats
+   - Optimize image sizes for API
 
 2. AI Integration
-   - Single API call per viewport
-   - Grid-aware prompts including layout information
-   - Structured responses with grid positions
-   - Confidence scoring for matches
+   - OpenAI GPT-4V-Mini for vision analysis
+   - Parallel request processing
+   - Cost-optimized prompts
+   - Batch processing for efficiency
 
 3. Visual Effects
    - CSS opacity transitions for smooth fade effects
@@ -34,38 +35,53 @@
    - Performance optimization via CSS transforms
 
 4. State Management
-   - Local storage for preferences and API key
+   - Local storage for preferences and API keys
    - In-memory cache for recent analysis results
    - Event-driven communication between components
+   - Cost tracking persistence
 
 ## Design Patterns
 1. Observer Pattern
-   - Scroll event monitoring
-   - Grid layout changes
-   - Preference updates
+   - Product grid monitoring
+   - Cost tracking updates
+   - Preference changes
 
 2. Factory Pattern
-   - Screenshot capture configurations
-   - AI prompt generation
-   - Filter effect creation
+   - API client creation
+   - Image processor configuration
+   - Cost calculator instances
 
 3. Strategy Pattern
-   - Different filtering algorithms
+   - Different AI providers
    - Various prompt templates
-   - Multiple grid detection methods
+   - Multiple cost tracking methods
 
-4. Singleton Pattern
-   - API client instance
-   - Preference manager
-   - Screenshot service
+4. Queue Pattern
+   - Parallel request management
+   - Rate limit handling
+   - Batch processing control
 
 ## Error Handling
 1. Graceful Degradation
-   - Fallback to manual browsing if API fails
-   - Cached results for offline capability
+   - Fallback to single requests if parallel fails
+   - Cache results for offline capability
    - Clear error messaging to user
 
 2. Rate Limiting
-   - Queue system for API requests
-   - Batch processing of images
-   - Cooldown periods between analyses
+   - Queue system for parallel requests
+   - Dynamic batch sizing
+   - Cost-aware throttling
+   - Budget enforcement
+
+## Cost Management
+1. Usage Tracking
+   - Token counting
+   - Request volume monitoring
+   - Cost calculation
+   - Budget enforcement
+
+2. Optimization
+   - Batch size tuning
+   - Prompt efficiency
+   - Cache utilization
+   - Parallel processing balance

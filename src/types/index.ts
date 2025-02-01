@@ -13,54 +13,61 @@ export interface UserPreferences {
 
 // Message types for communication between components
 export type MessageType =
-  | 'ANALYZE_GRID'
+  | 'START_SCAN'
+  | 'STOP_SCAN'
+  | 'ANALYZE_PRODUCT'
   | 'ANALYSIS_COMPLETE'
+  | 'ANALYSIS_STATUS'
   | 'UPDATE_PREFERENCES'
   | 'UPDATE_SEARCH'
+  | 'SCAN_PROGRESS'
   | 'SHOW_TOAST';
+
+export type AnalysisStage = 'start' | 'complete' | 'error';
+
+export interface AnalysisStatusPayload {
+  stage: AnalysisStage;
+  productId: string;
+  data?: {
+    prompt?: string;
+    response?: string;
+    error?: string;
+    timing?: {
+      apiCall: number;
+    };
+  };
+}
 
 export interface Message {
   type: MessageType;
   payload: any;
 }
 
-// Grid analysis types
-export interface GridPosition {
-  row: number;    // 0-1 for 5x2 grid
-  column: number; // 0-4 for 5x2 grid
-}
-
-export interface GridItem {
+// Product analysis types
+export interface ProductItem {
   id: string;
-  position: GridPosition;
   element: HTMLElement;
+  imageUrl: string;
+  title: string;
+  description: string;
 }
 
-export interface GridAnalysis {
-  items: GridAnalysisItem[];
-  timestamp: string;
-}
-
-export interface GridAnalysisItem {
-  position: GridPosition;
+export interface ProductAnalysis {
   matches: boolean;
   confidence: number;
   matchedCriteria: string[];
   description?: string;
-}
-
-// Viewport screenshot data
-export interface ViewportData {
-  screenshot: string; // base64 image data
-  gridSize: {
-    rows: number;
-    columns: number;
+  timing?: {
+    total: number;
+    apiCall: number;
   };
 }
 
 // Analysis request payload
-export interface AnalyzeGridPayload {
-  viewport: ViewportData;
+export interface AnalyzeProductPayload {
+  product: ProductItem;
+  preferences: string[];
+  searchTerm: string | null;
 }
 
 // API types
@@ -73,9 +80,10 @@ export interface AnthropicContent {
   type: 'text' | 'image';
   text?: string;
   source?: {
-    type: 'base64';
-    media_type: string;
-    data: string;
+    type: 'base64' | 'url';
+    url?: string;
+    media_type?: string;
+    data?: string;
   };
 }
 
@@ -97,14 +105,6 @@ export interface AnthropicResponseContent {
   type: 'text';
 }
 
-// Specific type for our grid analysis response
-export interface GridAnalysisResponse {
-  id: string;
-  matches: boolean;
-  confidence: number;
-  matchedCriteria: string[];
-}
-
 // Toast notification
 export interface ToastOptions {
   message: string;
@@ -116,24 +116,45 @@ export interface ToastOptions {
 export const enum Selectors {
   ProductGrid = '.feed-grid',
   ProductItem = '.feed-grid__item',
-  ProductImage = '.item-thumbnail__image'
+  ProductImage = 'img[data-testid="feed-item--image--img"]',
+  ProductTitle = '[data-testid="feed-item--description-title"]',
+  ProductDescription = '[data-testid="feed-item--overlay-link"]'
 }
 
 // Extension state
 export interface ExtensionState {
   isEnabled: boolean;
-  isAnalyzing: boolean;
+  isScanning: boolean;
   preferences: string[];
   currentSearch: string | null;
+  scanProgress: ScanProgress | null;
+}
+
+// Scan progress
+export interface ScanProgress {
+  total: number;
+  current: number;
+  currentItem: string | null;
+  startTime: number;
 }
 
 // Message payloads
-export interface AnalyzeGridPayload {
-  items: GridItem[];
+export interface StartScanPayload {
+  preferences: string[];
+  searchTerm: string | null;
+}
+
+export interface StopScanPayload {
+  reason: 'user' | 'error' | 'complete';
+}
+
+export interface ScanProgressPayload {
+  progress: ScanProgress;
 }
 
 export interface AnalysisCompletePayload {
-  analysis: GridAnalysis;
+  productId: string;
+  analysis: ProductAnalysis;
 }
 
 export interface UpdatePreferencesPayload {

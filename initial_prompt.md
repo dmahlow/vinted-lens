@@ -1,0 +1,13 @@
+- AI image filter for vinted.com
+- firefox addon
+- scrolls throw rows of vinted items on their website
+- takes screenshot of a grid of 5x2 of product images
+- sends screenshot to claude for image analysis
+- user can have preferences for what they like (wool, silk, v-neck)
+- user can search something specific: wool v-neck in red
+- claude will get these preferences as part of the prompt
+- it will mark all products in the grid that match these criteria
+- hide the products that don't match
+- the user can then browse through the endless scroll of vinted and will see products fade away that don't match either direct search term or preference
+- search and preference can be configured in the addon settings
+- we use anthropic and provide an API key in the addon

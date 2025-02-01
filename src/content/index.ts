@@ -62,6 +62,19 @@ class VintedLensContent {
     if (this.state.endlessScroll) {
       console.log('♾️ Setting up endless scroll mode');
       this.state.isScanning = true;
+
+      // Clear any stale analysis classes
+      console.log('🧹 Clearing stale analysis classes');
+      document.querySelectorAll('.vinted-lens-analyzed').forEach(element => {
+        element.classList.remove(
+          'vinted-lens-match',
+          'vinted-lens-hidden',
+          'vinted-lens-low-confidence',
+          'vinted-lens-analyzed'
+        );
+        element.removeAttribute('data-vinted-lens-id');
+      });
+
       this.setupIntersectionObserver();
       this.setupMutationObserver();
     }
@@ -133,7 +146,13 @@ class VintedLensContent {
             hasId: !!element.id,
             classes: element.classList.toString()
           });
-          if (!this.observedProducts.has(element.id)) {
+          const productId = element.getAttribute('data-vinted-lens-id');
+          console.log('🔍 Checking product:', {
+            productId,
+            isObserved: productId ? this.observedProducts.has(productId) : false,
+            classes: element.classList.toString()
+          });
+          if (!productId || !this.observedProducts.has(productId)) {
             this.queueProductForAnalysis(element);
           }
         }
@@ -175,8 +194,9 @@ class VintedLensContent {
   }
 
   private queueProductForAnalysis(element: HTMLElement): void {
+    const productId = element.getAttribute('data-vinted-lens-id');
     console.log('🔄 Queueing product:', {
-      elementId: element.id,
+      productId,
       isScanning: this.state.isScanning,
       queueLength: this.scanQueue.length,
       activeProducts: this.activeProducts.size
@@ -259,11 +279,19 @@ class VintedLensContent {
   private handleStopScan(payload: StopScanPayload): void {
     if (!this.state.isScanning) return;
 
-    console.log('🛑 Stopping scan:', payload.reason);
+    console.log('🛑 Stopping scan:', {
+      reason: payload.reason,
+      endlessScroll: this.state.endlessScroll
+    });
+
     this.scanQueue = [];
     this.activeProducts.clear();
-    this.state.isScanning = false;
-    this.state.scanProgress = null;
+
+    // Only set scanning false if not in endless scroll mode
+    if (!this.state.endlessScroll) {
+      this.state.isScanning = false;
+      this.state.scanProgress = null;
+    }
 
     // Clean up observers if not in endless scroll mode
     if (!this.state.endlessScroll) {

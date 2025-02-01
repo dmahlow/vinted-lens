@@ -113,7 +113,9 @@ export interface OpenAIResponse {
 }
 
 export interface CostTracking {
-  monthlyTokens: number;
+  monthlyInputTokens: number;   // Input tokens (prompt + image)
+  monthlyOutputTokens: number;  // Output tokens (completion)
+  monthlyTokens: number;        // Total tokens
   monthlyImages: number;
   estimatedCost: number;
   lastReset: string; // ISO date string

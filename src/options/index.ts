@@ -67,7 +67,9 @@ class VintedLensOptions {
 
     this.usageStatsElement.innerHTML = `
       <ul>
-        <li>Monthly Tokens: ${usage.monthlyTokens.toLocaleString()}</li>
+        <li>Monthly Input Tokens: ${usage.monthlyInputTokens?.toLocaleString() || '0'}</li>
+        <li>Monthly Output Tokens: ${usage.monthlyOutputTokens?.toLocaleString() || '0'}</li>
+        <li>Total Tokens: ${usage.monthlyTokens.toLocaleString()}</li>
         <li>Images Analyzed: ${usage.monthlyImages.toLocaleString()}</li>
         <li>Estimated Cost: $${usage.estimatedCost.toFixed(2)}</li>
         <li>Last Reset: ${formattedDate}</li>
@@ -136,6 +138,8 @@ class VintedLensOptions {
     try {
       const now = new Date();
       const newUsage: CostTracking = {
+        monthlyInputTokens: 0,
+        monthlyOutputTokens: 0,
         monthlyTokens: 0,
         monthlyImages: 0,
         estimatedCost: 0,

@@ -16,6 +16,8 @@ class VintedLensBackground {
   private imageDetail: 'low' | 'high' | 'auto' = 'auto';
   private costLimit: number = 0;
   private costTracking: CostTracking = {
+    monthlyInputTokens: 0,
+    monthlyOutputTokens: 0,
     monthlyTokens: 0,
     monthlyImages: 0,
     estimatedCost: 0,
@@ -89,6 +91,8 @@ class VintedLensBackground {
     const now = new Date();
     if (lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()) {
       this.costTracking = {
+        monthlyInputTokens: 0,
+        monthlyOutputTokens: 0,
         monthlyTokens: 0,
         monthlyImages: 0,
         estimatedCost: 0,
@@ -137,6 +141,8 @@ class VintedLensBackground {
     const outputTokens = apiResponse.usage.completion_tokens;
 
     // Update tracking
+    this.costTracking.monthlyInputTokens += inputTokens;
+    this.costTracking.monthlyOutputTokens += outputTokens;
     this.costTracking.monthlyTokens += (inputTokens + outputTokens);
     this.costTracking.monthlyImages += 1;
 
@@ -147,8 +153,8 @@ class VintedLensBackground {
     const costPerOutputToken = 0.0006; // $0.60 per 1M tokens
 
     this.costTracking.estimatedCost = (
-      (inputTokens * costPerInputToken) +
-      (outputTokens * costPerOutputToken)
+      (this.costTracking.monthlyInputTokens * costPerInputToken) +
+      (this.costTracking.monthlyOutputTokens * costPerOutputToken)
     );
 
     console.log('💰 Cost tracking updated:', {
@@ -156,6 +162,8 @@ class VintedLensBackground {
       promptTokens: apiResponse.usage.prompt_tokens,
       completionTokens: apiResponse.usage.completion_tokens,
       totalTokens: inputTokens + outputTokens,
+      monthlyInputTokens: this.costTracking.monthlyInputTokens,
+      monthlyOutputTokens: this.costTracking.monthlyOutputTokens,
       estimatedCost: this.costTracking.estimatedCost
     });
 

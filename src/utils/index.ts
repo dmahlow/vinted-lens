@@ -30,14 +30,16 @@ export async function getStoredPreferences(): Promise<UserPreferences> {
     StorageKeys.Preferences,
     StorageKeys.ApiKey,
     StorageKeys.ImageDetail,
-    StorageKeys.CostLimit
+    StorageKeys.CostLimit,
+    StorageKeys.EndlessScroll
   ]);
 
   return {
     defaultPreferences: storage[StorageKeys.Preferences] || [],
     apiKey: storage[StorageKeys.ApiKey] || '',
     imageDetail: storage[StorageKeys.ImageDetail] || 'auto',
-    costLimit: storage[StorageKeys.CostLimit] || 0
+    costLimit: storage[StorageKeys.CostLimit] || 0,
+    endlessScroll: storage[StorageKeys.EndlessScroll] || false
   };
 }
 

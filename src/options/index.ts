@@ -11,6 +11,7 @@ class VintedLensOptions {
   private imageDetailSelect: HTMLSelectElement;
   private costLimitInput: HTMLInputElement;
   private defaultPreferencesInput: HTMLInputElement;
+  private endlessScrollInput: HTMLInputElement;
   private usageStatsElement: HTMLElement;
   private saveButton: HTMLButtonElement;
   private statusElement: HTMLElement;
@@ -20,6 +21,7 @@ class VintedLensOptions {
     this.imageDetailSelect = document.getElementById('imageDetail') as HTMLSelectElement;
     this.costLimitInput = document.getElementById('costLimit') as HTMLInputElement;
     this.defaultPreferencesInput = document.getElementById('defaultPreferences') as HTMLInputElement;
+    this.endlessScrollInput = document.getElementById('endlessScroll') as HTMLInputElement;
     this.usageStatsElement = document.getElementById('usageStats') as HTMLElement;
     this.saveButton = document.getElementById('save') as HTMLButtonElement;
     this.statusElement = document.getElementById('status') as HTMLElement;
@@ -34,13 +36,15 @@ class VintedLensOptions {
       StorageKeys.ImageDetail,
       StorageKeys.CostLimit,
       StorageKeys.MonthlyUsage,
-      StorageKeys.Preferences
+      StorageKeys.Preferences,
+      StorageKeys.EndlessScroll
     ]);
 
     this.apiKeyInput.value = storage[StorageKeys.ApiKey] || '';
     this.imageDetailSelect.value = storage[StorageKeys.ImageDetail] || 'auto';
     this.costLimitInput.value = storage[StorageKeys.CostLimit]?.toString() || '';
     this.defaultPreferencesInput.value = (storage[StorageKeys.Preferences] || []).join(', ');
+    this.endlessScrollInput.checked = storage[StorageKeys.EndlessScroll] || false;
 
     // Update usage stats
     await this.updateUsageStats(storage[StorageKeys.MonthlyUsage]);
@@ -111,7 +115,8 @@ class VintedLensOptions {
         [StorageKeys.ApiKey]: apiKey,
         [StorageKeys.ImageDetail]: imageDetail,
         [StorageKeys.CostLimit]: costLimit,
-        [StorageKeys.Preferences]: defaultPreferences
+        [StorageKeys.Preferences]: defaultPreferences,
+        [StorageKeys.EndlessScroll]: this.endlessScrollInput.checked
       });
 
       // Then reload background script to apply changes

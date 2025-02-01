@@ -13,7 +13,8 @@ import {
   ScanProgress,
   ScanProgressPayload,
   AnalysisStatusPayload,
-  AnalysisStage
+  AnalysisStage,
+  StorageKeys
 } from '../types';
 
 class VintedLensContent {
@@ -22,12 +23,16 @@ class VintedLensContent {
     isScanning: false,
     preferences: [],
     currentSearch: null,
-    scanProgress: null
+    scanProgress: null,
+    endlessScroll: false
   };
 
   private scanQueue: ProductItem[] = [];
   private activeProducts = new Set<string>();
   private readonly MAX_CONCURRENT = 8;
+  private observer: IntersectionObserver | null = null;
+  private mutationObserver: MutationObserver | null = null;
+  private observedProducts = new Set<string>();
 
   constructor() {
     this.initialize();
@@ -37,15 +42,27 @@ class VintedLensContent {
     console.log('🔍 Vinted Lens: Initializing content script');
 
     // Load initial state from storage
-    const storage = await browser.storage.local.get(['preferences', 'currentSearch']);
-    this.state.preferences = storage.preferences || [];
-    this.state.currentSearch = storage.currentSearch || null;
+    const storage = await browser.storage.local.get([
+      StorageKeys.Preferences,
+      StorageKeys.CurrentSearch,
+      StorageKeys.EndlessScroll
+    ]);
+    this.state.preferences = storage[StorageKeys.Preferences] || [];
+    this.state.currentSearch = storage[StorageKeys.CurrentSearch] || null;
+    this.state.endlessScroll = storage[StorageKeys.EndlessScroll] || false;
     console.log('📋 Loaded preferences:', this.state.preferences);
     console.log('🔎 Current search:', this.state.currentSearch);
+    console.log('♾️ Endless scroll:', this.state.endlessScroll);
 
     // Set up message listeners
     browser.runtime.onMessage.addListener(this.handleMessage.bind(this));
     console.log('👂 Message listener set up');
+
+    // Set up observers if endless scroll is enabled
+    if (this.state.endlessScroll) {
+      this.setupIntersectionObserver();
+      this.setupMutationObserver();
+    }
   }
 
   private handleMessage(message: Message): void {
@@ -99,6 +116,78 @@ class VintedLensContent {
     }
   }
 
+  private setupIntersectionObserver(): void {
+    console.log('🔍 Setting up intersection observer');
+    this.observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const element = entry.target as HTMLElement;
+          if (!this.observedProducts.has(element.id)) {
+            this.queueProductForAnalysis(element);
+          }
+        }
+      });
+    }, {
+      rootMargin: '50px', // Start loading slightly before elements come into view
+      threshold: 0.1 // Trigger when even a small part is visible
+    });
+
+    // Start observing existing products
+    document.querySelectorAll(Selectors.ProductItem).forEach(element => {
+      if (!element.classList.contains('vinted-lens-analyzed')) {
+        this.observer!.observe(element);
+      }
+    });
+  }
+
+  private setupMutationObserver(): void {
+    console.log('🔍 Setting up mutation observer');
+    this.mutationObserver = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node instanceof HTMLElement && node.matches(Selectors.ProductItem)) {
+            if (!node.classList.contains('vinted-lens-analyzed')) {
+              this.observer?.observe(node);
+            }
+          }
+        });
+      });
+    });
+
+    const productGrid = document.querySelector(Selectors.ProductGrid);
+    if (productGrid) {
+      this.mutationObserver.observe(productGrid, {
+        childList: true,
+        subtree: true
+      });
+    }
+  }
+
+  private queueProductForAnalysis(element: HTMLElement): void {
+    const imgElement = element.querySelector(Selectors.ProductImage) as HTMLImageElement;
+    const titleElement = element.querySelector(Selectors.ProductTitle);
+    const descElement = element.querySelector(Selectors.ProductDescription);
+
+    if (imgElement && titleElement && descElement) {
+      const product: ProductItem = {
+        id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        element,
+        imageUrl: imgElement.src,
+        title: titleElement.textContent || '',
+        description: descElement.getAttribute('title') || ''
+      };
+
+      element.setAttribute('data-vinted-lens-id', product.id);
+      this.observedProducts.add(product.id);
+      this.scanQueue.push(product);
+
+      // Start processing if we have capacity
+      if (this.activeProducts.size < this.MAX_CONCURRENT) {
+        this.processNextProduct();
+      }
+    }
+  }
+
   private handleStartScan(payload: StartScanPayload): void {
     if (this.state.isScanning) {
       console.log('⏳ Scan already in progress');
@@ -130,6 +219,13 @@ class VintedLensContent {
     };
 
     this.updateProgress();
+
+    // Set up observers for endless scroll if enabled
+    if (this.state.endlessScroll && !this.observer) {
+      this.setupIntersectionObserver();
+      this.setupMutationObserver();
+    }
+
     this.processNextProduct();
   }
 
@@ -141,6 +237,19 @@ class VintedLensContent {
     this.activeProducts.clear();
     this.state.isScanning = false;
     this.state.scanProgress = null;
+
+    // Clean up observers if not in endless scroll mode
+    if (!this.state.endlessScroll) {
+      if (this.observer) {
+        this.observer.disconnect();
+        this.observer = null;
+      }
+      if (this.mutationObserver) {
+        this.mutationObserver.disconnect();
+        this.mutationObserver = null;
+      }
+      this.observedProducts.clear();
+    }
 
     this.showToast({
       message: payload.reason === 'complete'

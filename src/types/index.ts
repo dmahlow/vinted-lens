@@ -5,7 +5,8 @@ export const enum StorageKeys {
   CurrentSearch = 'currentSearch',
   ImageDetail = 'imageDetail',
   CostLimit = 'costLimit',
-  MonthlyUsage = 'monthlyUsage'
+  MonthlyUsage = 'monthlyUsage',
+  EndlessScroll = 'endlessScroll'
 }
 
 // User preferences
@@ -14,6 +15,7 @@ export interface UserPreferences {
   apiKey: string;
   imageDetail: 'low' | 'high' | 'auto';
   costLimit: number;
+  endlessScroll: boolean;
 }
 
 // Message types for communication between components
@@ -140,6 +142,7 @@ export interface ExtensionState {
   preferences: string[];
   currentSearch: string | null;
   scanProgress: ScanProgress | null;
+  endlessScroll: boolean;
 }
 
 // Scan progress

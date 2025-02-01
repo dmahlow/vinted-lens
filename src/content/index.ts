@@ -26,7 +26,8 @@ class VintedLensContent {
   };
 
   private scanQueue: ProductItem[] = [];
-  private currentProduct: ProductItem | null = null;
+  private activeProducts = new Set<string>();
+  private readonly MAX_CONCURRENT = 8;
 
   constructor() {
     this.initialize();
@@ -137,7 +138,7 @@ class VintedLensContent {
 
     console.log('🛑 Stopping scan:', payload.reason);
     this.scanQueue = [];
-    this.currentProduct = null;
+    this.activeProducts.clear();
     this.state.isScanning = false;
     this.state.scanProgress = null;
 
@@ -179,63 +180,64 @@ class VintedLensContent {
   private async processNextProduct(): Promise<void> {
     if (!this.state.isScanning) return;
 
-    // If we have a current product, wait for it to finish
-    if (this.currentProduct) {
-      console.log('⏳ Waiting for current product to finish:', this.currentProduct.id);
-      return;
+    // Process up to MAX_CONCURRENT products at once
+    while (this.scanQueue.length > 0 && this.activeProducts.size < this.MAX_CONCURRENT) {
+      const product = this.scanQueue.shift()!;
+      console.log('🔄 Processing product:', product.id, {
+        activeProducts: this.activeProducts.size,
+        queueLength: this.scanQueue.length
+      });
+
+      // Update progress
+      if (this.state.scanProgress) {
+        this.state.scanProgress.current++;
+        this.state.scanProgress.currentItem = product.title;
+        this.updateProgress();
+      }
+
+      // Add analyzing class
+      product.element.setAttribute('data-vinted-lens-id', product.id);
+      product.element.classList.add('vinted-lens-analyzing');
+
+      // Track active product
+      this.activeProducts.add(product.id);
+
+      // Start analysis (don't await)
+      this.analyzeProduct(product).catch(error => {
+        console.error('❌ Analysis failed:', error);
+        this.activeProducts.delete(product.id);
+        product.element.classList.remove('vinted-lens-analyzing');
+        // Try next product immediately
+        this.processNextProduct();
+      });
     }
 
-    this.currentProduct = this.scanQueue.shift() || null;
-    if (!this.currentProduct) {
+    // If queue is empty and no active products, we're done
+    if (this.scanQueue.length === 0 && this.activeProducts.size === 0) {
       this.handleStopScan({ reason: 'complete' });
-      return;
     }
+  }
 
-    const product = this.currentProduct;
-    console.log('🔄 Processing product:', product.id);
+  private async analyzeProduct(product: ProductItem): Promise<void> {
+    console.log('📤 Sending product for analysis:', {
+      id: product.id,
+      imageUrl: product.imageUrl,
+      title: product.title,
+      queueLength: this.scanQueue.length,
+      activeProducts: this.activeProducts.size
+    });
 
-    // Update progress
-    if (this.state.scanProgress) {
-      this.state.scanProgress.current++;
-      this.state.scanProgress.currentItem = product.title;
-      this.updateProgress();
-    }
-
-    // Add analyzing class
-    product.element.setAttribute('data-vinted-lens-id', product.id);
-    product.element.classList.add('vinted-lens-analyzing');
-
-    try {
-      // Send message to background script for analysis
-      console.log('📤 Sending product for analysis:', {
-        id: product.id,
-        imageUrl: product.imageUrl,
-        title: product.title,
-        queueSize: this.scanQueue.length
-      });
-
-      await browser.runtime.sendMessage({
-        type: 'ANALYZE_PRODUCT',
-        payload: {
-          product: {
-            ...product,
-            element: undefined // Can't send DOM elements
-          },
-          preferences: this.state.preferences,
-          searchTerm: this.state.currentSearch
-        }
-      });
-    } catch (error) {
-      console.error('❌ Product analysis failed:', error);
-      this.showToast({
-        message: 'Failed to analyze product',
-        type: 'error'
-      });
-      product.element.classList.remove('vinted-lens-analyzing');
-      this.currentProduct = null;
-      // Try next product after a short delay
-      setTimeout(() => this.processNextProduct(), 1000);
-    }
+    await browser.runtime.sendMessage({
+      type: 'ANALYZE_PRODUCT',
+      payload: {
+        product: {
+          ...product,
+          element: undefined // Can't send DOM elements
+        },
+        preferences: this.state.preferences,
+        searchTerm: this.state.currentSearch
+      }
+    });
   }
 
   private handleAnalysisComplete(payload: AnalysisCompletePayload): void {
@@ -255,8 +257,8 @@ class VintedLensContent {
 
     if (!productElement) {
       console.warn('⚠️ No element found for product:', productId);
-      this.currentProduct = null;
-      setTimeout(() => this.processNextProduct(), 1000);
+      this.activeProducts.delete(productId);
+      this.processNextProduct();
       return;
     }
 
@@ -278,9 +280,9 @@ class VintedLensContent {
         productElement.classList.add('vinted-lens-hidden');
       }
 
-      // Clear current product and process next after a short delay
-      this.currentProduct = null;
-      setTimeout(() => this.processNextProduct(), 500);
+      // Remove from active products and process next
+      this.activeProducts.delete(productId);
+      this.processNextProduct();
     }, 0);
   }
 

@@ -28,12 +28,16 @@ export function debounce<T extends (...args: any[]) => void>(
 export async function getStoredPreferences(): Promise<UserPreferences> {
   const storage = await browser.storage.local.get([
     StorageKeys.Preferences,
-    StorageKeys.ApiKey
+    StorageKeys.ApiKey,
+    StorageKeys.ImageDetail,
+    StorageKeys.CostLimit
   ]);
 
   return {
     defaultPreferences: storage[StorageKeys.Preferences] || [],
-    apiKey: storage[StorageKeys.ApiKey] || ''
+    apiKey: storage[StorageKeys.ApiKey] || '',
+    imageDetail: storage[StorageKeys.ImageDetail] || 'auto',
+    costLimit: storage[StorageKeys.CostLimit] || 0
   };
 }
 

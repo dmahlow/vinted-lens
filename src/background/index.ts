@@ -1,17 +1,26 @@
 import {
   Message,
-  AnthropicMessage,
-  AnthropicResponse,
+  OpenAIMessage,
+  OpenAIResponse,
   ProductAnalysis,
   AnalyzeProductPayload,
   ProductItem,
   ShowToastPayload,
-  StorageKeys
+  StorageKeys,
+  CostTracking
 } from '../types';
 import { imageUrlToBase64 } from '../utils';
 
 class VintedLensBackground {
   private apiKey: string | null = null;
+  private imageDetail: 'low' | 'high' | 'auto' = 'auto';
+  private costLimit: number = 0;
+  private costTracking: CostTracking = {
+    monthlyTokens: 0,
+    monthlyImages: 0,
+    estimatedCost: 0,
+    lastReset: new Date().toISOString()
+  };
 
   constructor() {
     this.initialize();
@@ -20,24 +29,107 @@ class VintedLensBackground {
   private async initialize(): Promise<void> {
     console.log('🔍 Vinted Lens: Initializing background script');
 
-    // Load API key from storage
-    const storage = await browser.storage.local.get(StorageKeys.ApiKey);
-    this.apiKey = storage[StorageKeys.ApiKey] || null;
+    // Load settings from storage
+    const storage = await browser.storage.local.get([
+      StorageKeys.ApiKey,
+      StorageKeys.ImageDetail,
+      StorageKeys.CostLimit,
+      StorageKeys.MonthlyUsage
+    ]);
+
+    // Load and validate API key
+    const rawApiKey = storage[StorageKeys.ApiKey];
+    console.log('🔑 Raw API key from storage:', rawApiKey);
+    console.log('🔑 API key details:', {
+      present: !!rawApiKey,
+      value: rawApiKey,
+      keyType: rawApiKey ? typeof rawApiKey : 'null',
+      startsWith: rawApiKey ? rawApiKey.substring(0, 7) : 'n/a',
+      length: rawApiKey ? rawApiKey.length : 0,
+      storage_key_used: StorageKeys.ApiKey
+    });
+
+    this.apiKey = rawApiKey || null;
+    console.log('🔑 API key after assignment:', {
+      value: this.apiKey,
+      valid: this.isValidApiKey(this.apiKey)
+    });
+    this.imageDetail = storage[StorageKeys.ImageDetail] || 'auto';
+    this.costLimit = storage[StorageKeys.CostLimit] || 0;
+    this.costTracking = storage[StorageKeys.MonthlyUsage] || {
+      monthlyTokens: 0,
+      monthlyImages: 0,
+      estimatedCost: 0,
+      lastReset: new Date().toISOString()
+    };
+
+    // Add storage change listener
+    browser.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === 'local' && changes[StorageKeys.ApiKey]) {
+        console.log('🔄 API key changed:', {
+          oldValue: changes[StorageKeys.ApiKey].oldValue ? '[REDACTED]' : null,
+          newValue: changes[StorageKeys.ApiKey].newValue ? '[REDACTED]' : null
+        });
+        this.apiKey = changes[StorageKeys.ApiKey].newValue || null;
+        console.log('🔄 API key after change:', {
+          value: this.apiKey,
+          valid: this.isValidApiKey(this.apiKey)
+        });
+      }
+    });
+
+    // Check if we need to reset monthly tracking
+    const lastReset = new Date(this.costTracking.lastReset);
+    const now = new Date();
+    if (lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()) {
+      this.costTracking = {
+        monthlyTokens: 0,
+        monthlyImages: 0,
+        estimatedCost: 0,
+        lastReset: now.toISOString()
+      };
+      await this.saveCostTracking();
+    }
 
     // Debug logging
-    console.log('🔑 Raw API key from storage:', this.apiKey);
-    console.log('🔑 API key details:', {
-      present: !!this.apiKey,
-      value: this.apiKey,
-      keyType: this.apiKey ? typeof this.apiKey : 'null',
-      startsWith: this.apiKey ? this.apiKey.substring(0, 7) : 'n/a',
-      length: this.apiKey ? this.apiKey.length : 0,
-      storage_key_used: StorageKeys.ApiKey
+    console.log('🔑 Settings loaded:', {
+      apiKeyPresent: !!this.apiKey,
+      apiKeyValid: this.isValidApiKey(this.apiKey),
+      imageDetail: this.imageDetail,
+      costLimit: this.costLimit,
+      costTracking: this.costTracking
     });
 
     // Set up message listeners
     browser.runtime.onMessage.addListener(this.handleMessage.bind(this));
     console.log('👂 Message listener set up');
+  }
+
+  private async saveCostTracking(): Promise<void> {
+    await browser.storage.local.set({
+      [StorageKeys.MonthlyUsage]: this.costTracking
+    });
+  }
+
+  private async updateCostTracking(tokens: number): Promise<void> {
+    // Update tracking
+    this.costTracking.monthlyTokens += tokens;
+    this.costTracking.monthlyImages += 1;
+
+    // Calculate cost (approximate OpenAI GPT-4V pricing)
+    const costPerInputToken = 0.00001; // $0.01 per 1K tokens
+    const costPerOutputToken = 0.00003; // $0.03 per 1K tokens
+    this.costTracking.estimatedCost = (
+      (this.costTracking.monthlyTokens * costPerInputToken) +
+      (this.costTracking.monthlyTokens * 0.2 * costPerOutputToken) // Assuming output is ~20% of input
+    );
+
+    await this.saveCostTracking();
+
+    // Check if we've exceeded the cost limit
+    if (this.costLimit > 0 && this.costTracking.estimatedCost > this.costLimit) {
+      throw new Error('Monthly cost limit exceeded');
+    }
   }
 
   private async handleMessage(message: Message): Promise<void> {
@@ -48,11 +140,15 @@ class VintedLensBackground {
     }
   }
 
+  private isValidApiKey(key: string | null): boolean {
+    return !!key && (key.startsWith('sk-') || key.startsWith('sk-proj-'));
+  }
+
   private async handleProductAnalysis(payload: AnalyzeProductPayload): Promise<void> {
     console.log('📦 Analyzing product:', payload.product.id);
 
-    if (!this.apiKey) {
-      console.error('❌ No API key found');
+    if (!this.isValidApiKey(this.apiKey)) {
+      console.error('❌ No valid API key found');
       await this.showToast({
         message: 'Please set your API key in the extension options',
         type: 'error'
@@ -96,6 +192,12 @@ class VintedLensBackground {
     }
   }
 
+  private extractJsonFromResponse(text: string): string {
+    // Remove markdown code block if present
+    const jsonMatch = text.match(/```(?:json)?\n?(.*?)```/s);
+    return jsonMatch ? jsonMatch[1].trim() : text.trim();
+  }
+
   private async analyzeProduct(payload: AnalyzeProductPayload): Promise<ProductAnalysis> {
     if (!this.apiKey) {
       throw new Error('API key is required');
@@ -118,13 +220,13 @@ ${preferences.length > 0 ? `- Preferences: ${preferences.join(', ')}` : ''}`
     });
 
     const startApiCall = performance.now();
-    const messages: AnthropicMessage[] = [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `Analyze if this product matches either:
+      const messages: OpenAIMessage[] = [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Analyze if this product matches either:
 ${searchTerm ? `- Search term: "${searchTerm}"` : ''}
 ${preferences.length > 0 ? `- Preferences: ${preferences.join(', ')}` : ''}
 
@@ -139,131 +241,133 @@ Respond in JSON format:
   "matchedCriteria": string[], // "search" or the specific preference that matched
   "description": string explaining why it matched or didn't match
 }`
-          },
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: 'image/jpeg', // Will be updated with actual type
-              data: '' // Will be filled with base64 data
             }
-          }
-        ]
-      }
-    ];
-
-    let response;
-    let result: AnthropicResponse;
-
-    try {
-      // Convert image to base64
-      const { data: base64Data, mediaType } = await imageUrlToBase64(product.imageUrl);
-
-      // Update the image source with base64 data
-      messages[0].content[1] = {
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: mediaType,
-          data: base64Data
+          ]
         }
-      };
+      ];
 
-      const requestBody = {
-        model: 'claude-3-5-sonnet-20241022',
-        max_tokens: 1024,
-        messages
-      };
-
-      const headers = {
-        'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'x-api-key': this.apiKey,
-        'anthropic-dangerous-direct-browser-access': 'true'
-      };
-
-      // Debug logging
-      console.log('🔄 Claude API Request:', {
-        url: 'https://api.anthropic.com/v1/messages',
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody, null, 2)
-      });
-
-      response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(requestBody)
-      });
-
-      const responseText = await response.text();
-      console.log('🔄 Claude API Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-        body: responseText
-      });
-
-      if (!response.ok) {
-        let errorMessage = `API request failed (${response.status})`;
-
-        if (response.status === 401 || response.status === 403) {
-          errorMessage = 'Invalid API key. Make sure you\'re using a valid API key from console.anthropic.com';
-        } else if (response.status === 429) {
-          errorMessage = 'Rate limit exceeded. Please try again later.';
-        } else {
-          try {
-            const errorJson = JSON.parse(responseText);
-            errorMessage += `: ${errorJson.error?.message || responseText}`;
-          } catch {
-            errorMessage += `: ${responseText}`;
-          }
-        }
-
-        throw new Error(errorMessage);
-      }
-
-      result = JSON.parse(responseText) as AnthropicResponse;
-      const apiCallTime = performance.now() - startApiCall;
-      const analysisText = result.content[0].text;
-
-      // Send analysis complete status
-      await this.sendToActiveTab({
-        type: 'ANALYSIS_STATUS',
-        payload: {
-          stage: 'complete',
-          productId: product.id,
-          data: {
-            response: analysisText,
-            timing: {
-              apiCall: apiCallTime
-            }
-          }
-        }
-      });
+      let response;
+      let result: OpenAIResponse;
 
       try {
-        const analysis = JSON.parse(analysisText) as ProductAnalysis;
-        return {
-          ...analysis,
-          timing: {
-            total: apiCallTime,
-            apiCall: apiCallTime
+        // Convert image to base64
+        const { data: base64Data, mediaType } = await imageUrlToBase64(product.imageUrl);
+
+        // Add image to message content
+        messages[0].content.push({
+          type: 'image_url',
+          image_url: {
+            url: `data:${mediaType};base64,${base64Data}`,
+            detail: this.imageDetail
           }
+        });
+
+        const requestBody = {
+          model: 'gpt-4o-mini',
+          messages,
+          max_tokens: 300
         };
-      } catch (error: unknown) {
+
+        const headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        };
+
+        // Debug logging
+        console.log('🔄 OpenAI API Request:', {
+          url: 'https://api.openai.com/v1/chat/completions',
+          method: 'POST',
+          headers: { ...headers, Authorization: 'Bearer [REDACTED]' },
+          body: JSON.stringify(requestBody, null, 2)
+        });
+
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody)
+        });
+
+        const responseText = await response.text();
+        console.log('🔄 OpenAI API Response:', {
+          status: response.status,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: responseText
+        });
+
+        if (!response.ok) {
+          let errorMessage = `API request failed (${response.status})`;
+
+          if (response.status === 401) {
+            errorMessage = 'Invalid API key. Make sure you\'re using a valid API key from platform.openai.com';
+          } else if (response.status === 429) {
+            errorMessage = 'Rate limit exceeded. Please try again later.';
+          } else if (response.status === 400) {
+            errorMessage = 'Invalid request format';
+          } else {
+            try {
+              const errorJson = JSON.parse(responseText);
+              errorMessage += `: ${errorJson.error?.message || responseText}`;
+            } catch {
+              errorMessage += `: ${responseText}`;
+            }
+          }
+
+          throw new Error(errorMessage);
+        }
+
+        result = JSON.parse(responseText) as OpenAIResponse;
+        const apiCallTime = performance.now() - startApiCall;
+
+        // Calculate and track token usage
+        const totalTokens = result.usage.total_tokens;
+        await this.updateCostTracking(totalTokens);
+
+        const analysisText = result.choices[0].message.content;
+
+        // Send analysis complete status
         await this.sendToActiveTab({
           type: 'ANALYSIS_STATUS',
           payload: {
-            stage: 'error',
+            stage: 'complete',
             productId: product.id,
             data: {
-              error: 'Failed to parse Claude response'
+              response: analysisText,
+              timing: {
+                apiCall: apiCallTime
+              }
             }
           }
         });
-        throw new Error('Invalid analysis response format');
-      }
+
+        try {
+          // Extract JSON from potential code block and parse
+          const cleanJson = this.extractJsonFromResponse(analysisText);
+          console.log('🔄 Extracted JSON:', {
+            original: analysisText,
+            cleaned: cleanJson
+          });
+          const analysis = JSON.parse(cleanJson) as ProductAnalysis;
+          return {
+            ...analysis,
+            timing: {
+              total: apiCallTime,
+              apiCall: apiCallTime
+            }
+          };
+        } catch (error: unknown) {
+          await this.sendToActiveTab({
+            type: 'ANALYSIS_STATUS',
+            payload: {
+              stage: 'error',
+              productId: product.id,
+              data: {
+                error: 'Failed to parse OpenAI response'
+              }
+            }
+          });
+          throw new Error('Invalid analysis response format');
+        }
     } catch (error: unknown) {
       await this.sendToActiveTab({
         type: 'ANALYSIS_STATUS',

@@ -87,14 +87,46 @@
   <div class="section">
     <h2>API Configuration</h2>
     <div class="field">
-      <label for="apiKey">Anthropic API Key</label>
-      <input type="password" id="apiKey" placeholder="Enter your Anthropic API key">
+      <label for="apiKey">OpenAI API Key</label>
+      <input type="password" id="apiKey" placeholder="Enter your OpenAI API key">
       <div class="description">
-        Your API key is stored locally and used to access Claude's vision capabilities.
-        Get your API key from <a href="https://console.anthropic.com/" target="_blank">Anthropic Console</a>.
+        Your API key is stored locally and used to access GPT-4V vision capabilities.
+        Get your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Platform</a>.
       </div>
       <div class="note">
-        <strong>Important:</strong> Make sure your API key starts with "sk-ant-". Do not include "Bearer" prefix - it will be added automatically.
+        <strong>Important:</strong> Make sure your API key starts with "sk-". Do not include "Bearer" prefix.
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="imageDetail">Image Analysis Detail</label>
+      <select id="imageDetail">
+        <option value="low">Low (Faster, cheaper)</option>
+        <option value="high">High (More detailed, expensive)</option>
+        <option value="auto" selected>Auto (Recommended)</option>
+      </select>
+      <div class="description">
+        Controls the detail level of image analysis:
+        <ul>
+          <li>Low: 85 tokens per image</li>
+          <li>High: Up to 1105 tokens for large images</li>
+          <li>Auto: Automatically chooses based on image size</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="costLimit">Monthly Cost Limit (USD)</label>
+      <input type="number" id="costLimit" min="0" step="0.01" placeholder="Enter maximum monthly spending">
+      <div class="description">
+        Set a monthly budget limit for API usage. The extension will stop analyzing images when limit is reached.
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Current Usage</label>
+      <div id="usageStats" class="description">
+        Loading usage statistics...
       </div>
     </div>
   </div>

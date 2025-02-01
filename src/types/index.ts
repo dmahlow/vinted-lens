@@ -2,13 +2,18 @@
 export const enum StorageKeys {
   Preferences = 'preferences',
   ApiKey = 'apiKey',
-  CurrentSearch = 'currentSearch'
+  CurrentSearch = 'currentSearch',
+  ImageDetail = 'imageDetail',
+  CostLimit = 'costLimit',
+  MonthlyUsage = 'monthlyUsage'
 }
 
 // User preferences
 export interface UserPreferences {
   defaultPreferences: string[];
   apiKey: string;
+  imageDetail: 'low' | 'high' | 'auto';
+  costLimit: number;
 }
 
 // Message types for communication between components
@@ -71,38 +76,45 @@ export interface AnalyzeProductPayload {
 }
 
 // API types
-export interface AnthropicMessage {
+export interface OpenAIMessage {
   role: 'user' | 'assistant';
-  content: AnthropicContent[];
+  content: OpenAIContent[];
 }
 
-export interface AnthropicContent {
-  type: 'text' | 'image';
+export interface OpenAIContent {
+  type: 'text' | 'image_url';
   text?: string;
-  source?: {
-    type: 'base64' | 'url';
-    url?: string;
-    media_type?: string;
-    data?: string;
+  image_url?: {
+    url: string;
+    detail?: 'low' | 'high' | 'auto';
   };
 }
 
-export interface AnthropicResponse {
+export interface OpenAIResponse {
   id: string;
+  object: string;
+  created: number;
   model: string;
-  role: 'assistant';
-  content: AnthropicResponseContent[];
-  stop_reason: string | null;
-  stop_sequence: string | null;
+  choices: [{
+    index: number;
+    message: {
+      role: 'assistant';
+      content: string;
+    };
+    finish_reason: string;
+  }];
   usage: {
-    input_tokens: number;
-    output_tokens: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
   };
 }
 
-export interface AnthropicResponseContent {
-  text: string;
-  type: 'text';
+export interface CostTracking {
+  monthlyTokens: number;
+  monthlyImages: number;
+  estimatedCost: number;
+  lastReset: string; // ISO date string
 }
 
 // Toast notification
